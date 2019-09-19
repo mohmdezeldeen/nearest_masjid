@@ -1,10 +1,14 @@
+import 'package:connectivity/connectivity.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:nearest_masjid/database/database_helper.dart';
 import 'package:nearest_masjid/entities/masjid.dart';
 import 'package:nearest_masjid/pages/masjid_details_page.dart';
 import 'package:nearest_masjid/utils/common_utils.dart';
 import 'package:nearest_masjid/utils/location_utils.dart';
 import 'package:nearest_masjid/utils/service_utils.dart';
+
+import '../utils/app_localizations.dart';
 
 class MasjidsListPage extends StatefulWidget {
   MasjidsListPage({Key key, this.title}) : super(key: key);
@@ -29,10 +33,27 @@ class _MasjidsListPageState extends State<MasjidsListPage> {
     _latitude = 29.97162;
     _longitude = 31.11374;
     _radius = 7.0;
-//    _completeMissionSendRequest();
+    _checkInternetConnection();
   }
 
-  void _completeMissionSendRequest() {
+  void _checkInternetConnection() {
+    Connectivity().checkConnectivity().then((result) {
+      if (result == ConnectivityResult.mobile ||
+          result == ConnectivityResult.wifi) {
+        setState(() {
+//          _isPressed = true;
+        });
+        _fetchCurrentLocation();
+      } else {
+        setState(() {
+//          _isPressed = false;
+        });
+        showSnackBar(_scaffoldKey,
+            AppLocalization.translate(context, 'no_connection_available'));
+      }
+    });
+  }
+  void _fetchCurrentLocation() {
     LocationUtils.findCurrentLocationName().then((response) {
       if (response.error != null && response.error.isNotEmpty) {
         showSnackBar(_scaffoldKey, "${response.error}");
@@ -44,10 +65,10 @@ class _MasjidsListPageState extends State<MasjidsListPage> {
         _longitude = position.longitude;
       });
 
-//      currentAttendance.sendToNamaAndSaveToDB().then((map) {
-//        List<String> messages = map["messages"];
-//        for (String message in messages) {
-//          showSnackBar(_scaffoldKey, message);
+//      DatabaseHelper.getAllMasjids().then((map) {
+//        List<Masjid> masjids = map;
+//        for (masjid masjid in masjids) {
+//          showSnackBar(_scaffoldKey, masjid);
 //        }
 //      });
     });
@@ -92,11 +113,10 @@ class _MasjidsListPageState extends State<MasjidsListPage> {
               }
           }
         },
-        future: ServiceUtils.fetchResultFromServer(
-                _latitude, _longitude, _radius.round())
+        future: DatabaseHelper.getAllMasjids()
             .then((response) async {
           if (response != null) {
-            this.masjidsList = response.data;
+            this.masjidsList = response;
           } else {
             print('ERROR: ${response}');
           }
@@ -110,7 +130,7 @@ class _MasjidsListPageState extends State<MasjidsListPage> {
         children: <Widget>[_buildSliderRow(), bodyBuilder],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _completeMissionSendRequest,
+        onPressed: _fetchCurrentLocation,
         child: Icon(Icons.my_location),
       ),
     );
@@ -191,7 +211,7 @@ class _MasjidsListPageState extends State<MasjidsListPage> {
         .then((response) {
       List<Masjid> data;
       if (response != null)
-        data = response.data;
+        data = response;
       else
         data = List();
       print(data.length);

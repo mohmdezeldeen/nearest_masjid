@@ -1,3 +1,4 @@
 {
-  "app_title": "Nearest Masjid"
+  "app_title": "Nearest Masjid",
+  "no_connection_available": "لا يوجد اتصال، تأكد من إتصالك بالإنترنت"
 }
