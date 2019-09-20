@@ -1,4 +1,5 @@
 {
   "app_title": "Nearest Masjid",
-  "no_connection_available": "لا يوجد اتصال، تأكد من إتصالك بالإنترنت"
+  "no_connection_available": "لا يوجد اتصال، تأكد من إتصالك بالإنترنت",
+  "enable_location_services": "Please enable location services"
 }

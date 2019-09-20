@@ -1,10 +1,11 @@
 import 'package:connectivity/connectivity.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:nearest_masjid/database/database_helper.dart';
 import 'package:nearest_masjid/entities/masjid.dart';
 import 'package:nearest_masjid/pages/masjid_details_page.dart';
 import 'package:nearest_masjid/utils/common_utils.dart';
+import 'package:nearest_masjid/utils/database_helper.dart';
 import 'package:nearest_masjid/utils/location_utils.dart';
 import 'package:nearest_masjid/utils/service_utils.dart';
 
@@ -20,41 +21,27 @@ class MasjidsListPage extends StatefulWidget {
 }
 
 class _MasjidsListPageState extends State<MasjidsListPage> {
+  DatabaseHelper databaseHelper = DatabaseHelper();
+  List<Masjid> masjidList;
+  int count = 0;
   double _latitude;
   double _longitude;
   double _radius;
-  List<Masjid> masjidsList = List();
   LabeledGlobalKey<ScaffoldState> _scaffoldKey;
+  bool _showLoadingIndicator = true;
 
   @override
   void initState() {
     super.initState();
-    _scaffoldKey = LabeledGlobalKey<ScaffoldState>("detailScaffoldKey");
+    _scaffoldKey = LabeledGlobalKey<ScaffoldState>("listScaffoldKey");
     _latitude = 29.97162;
     _longitude = 31.11374;
     _radius = 7.0;
-    _checkInternetConnection();
+    _fetchCurrentLocation();
   }
 
-  void _checkInternetConnection() {
-    Connectivity().checkConnectivity().then((result) {
-      if (result == ConnectivityResult.mobile ||
-          result == ConnectivityResult.wifi) {
-        setState(() {
-//          _isPressed = true;
-        });
-        _fetchCurrentLocation();
-      } else {
-        setState(() {
-//          _isPressed = false;
-        });
-        showSnackBar(_scaffoldKey,
-            AppLocalization.translate(context, 'no_connection_available'));
-      }
-    });
-  }
   void _fetchCurrentLocation() {
-    LocationUtils.findCurrentLocationName().then((response) {
+    LocationUtils.findCurrentLocation().then((response) async {
       if (response.error != null && response.error.isNotEmpty) {
         showSnackBar(_scaffoldKey, "${response.error}");
         return;
@@ -64,13 +51,9 @@ class _MasjidsListPageState extends State<MasjidsListPage> {
         _latitude = position.latitude;
         _longitude = position.longitude;
       });
-
-//      DatabaseHelper.getAllMasjids().then((map) {
-//        List<Masjid> masjids = map;
-//        for (masjid masjid in masjids) {
-//          showSnackBar(_scaffoldKey, masjid);
-//        }
-//      });
+      showSnackBar(_scaffoldKey, 'تم إعتماد احداثيات موقعك الحالي');
+      await ServiceUtils.fetchResultFromServer(
+          databaseHelper, _latitude, _longitude, _radius.round());
     });
   }
 
@@ -82,77 +65,137 @@ class _MasjidsListPageState extends State<MasjidsListPage> {
             case ConnectionState.none:
             case ConnectionState.waiting:
               return buildLoadingDataIndicator(
-                  'جارى البحث عن المساجد القريبة ..');
+                  'جارى البحث عن المساجد القريبة ..',
+                  TextStyle(color: Colors.white));
             default:
               if (snapshot.hasError) {
                 return Text("Snapshot Error : ${snapshot.error}");
               } else {
-                if (snapshot.data == null)
-                  return Center(
+                if (count == 0)
+                  return Container(
+                      color: Color.fromRGBO(246, 239, 211, 1.0),
                       child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: <Widget>[
-                      Icon(
-                        Icons.account_balance,
-                        size: 96.0,
-                        color: Colors.grey,
-                      ),
-                      SizedBox(height: 5.0),
-                      Text('لا توجد مساجد فى هذا النطاق',
-                          style: TextStyle(
-                            fontSize: 32.0,
-                            color: Colors.grey,
-                          )),
-                    ],
-                  ));
-                return ListView.builder(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          SizedBox(height: 25.0),
+                          Image(
+                            image: AssetImage("assets/mosque.png"),
+                            width: 96,
+                            height: 96,
+                          ),
+                          SizedBox(height: 10.0),
+                          Text('لا توجد مساجد فى هذا النطاق',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 18.0,
+                                fontWeight: FontWeight.bold,
+                                color: Color.fromRGBO(43, 120, 112, 1.0),
+                              )),
+                        ],
+                      ));
+                return Container(
+                  color: Color.fromRGBO(246, 239, 211, 1.0),
+                  child: ListView.separated(
                     itemBuilder: (context, position) =>
-                        _createListViewItem(context, masjidsList[position]),
-                    itemCount: masjidsList.length);
+                        _createListViewItem(context, masjidList[position]),
+                    itemCount: masjidList.length,
+                    separatorBuilder: (context, index) {
+                      return Divider(
+                        height: 8.0,
+                      );
+                    },
+                  ),
+                );
               }
           }
         },
-        future: DatabaseHelper.getAllMasjids()
-            .then((response) async {
-          if (response != null) {
-            this.masjidsList = response;
-          } else {
-            print('ERROR: ${response}');
-          }
-          return masjidsList.length;
+        future: databaseHelper.initializeDatabase().then((database) {
+          databaseHelper.getMasjidList().then((masjidList) {
+            this.masjidList = masjidList;
+            this.count = masjidList.length;
+            _showLoadingIndicator = false;
+          });
         }));
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
+    return Stack(children: <Widget>[
+      new Container(
+        height: double.infinity,
+        width: double.infinity,
+        decoration: new BoxDecoration(
+          image: new DecorationImage(
+            image: new AssetImage("assets/background.jpg"),
+            fit: BoxFit.cover,
+          ),
+        ),
       ),
-      body: Column(
-        children: <Widget>[_buildSliderRow(), bodyBuilder],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _fetchCurrentLocation,
-        child: Icon(Icons.my_location),
-      ),
-    );
+      Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          actions: <Widget>[
+            IconButton(
+              icon: Icon(Icons.location_on),
+              onPressed: () {
+                _fetchCurrentLocation();
+              },
+            ),
+            IconButton(
+              icon: Icon(Icons.location_off),
+              onPressed: () {
+                setState(() {
+                  _latitude = 29.97162;
+                  _longitude = 31.11374;
+                  showSnackBar(_scaffoldKey, 'تم إعتماد الاحداثيات الإفتراضية');
+                });
+              },
+            ),
+          ],
+          backgroundColor: Colors.transparent,
+          elevation: 0.0,
+          title: Text(widget.title),
+        ),
+        body: Column(
+          children: <Widget>[
+            _buildSliderDetailBox(),
+            Expanded(
+              child: bodyBuilder,
+            )
+          ],
+        ),
+      )
+    ]);
   }
+
 
   Widget _createListViewItem(BuildContext context, Masjid masjid) {
     return GestureDetector(
         onTap: () => _onCardTap(masjid),
-        child: Card(
-            child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: _buildMasjidViewWidgets(masjid)),
-        )));
+        child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: _buildMasjidCardViewWidgets(masjid)));
   }
 
-  List<Widget> _buildMasjidViewWidgets(Masjid masjid) {
-    return <Widget>[
-      Text('${masjid.name_ar} ${masjid.distance} '),
-    ];
+  Widget _buildMasjidCardViewWidgets(Masjid masjid) {
+    return Row(
+      children: <Widget>[
+        Expanded(
+            flex: 10,
+            child: Text(
+                masjid.name_ar.isEmpty ? masjid.name_en : masjid.name_ar,
+                textAlign: TextAlign.start,
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueGrey))),
+        Expanded(
+            flex: 2,
+            child: Text('${masjid.distance.toStringAsFixed(1)}km',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueGrey))),
+        Expanded(flex: 2, child: Icon(Icons.chevron_right)),
+      ],
+    );
   }
 
   _onCardTap(Masjid masjid) {
@@ -160,61 +203,88 @@ class _MasjidsListPageState extends State<MasjidsListPage> {
         MaterialPageRoute(builder: (context) => MasjidDetailPage(masjid)));
   }
 
-//  Container _buildLoginButton(BuildContext context) {
-//    return Container(
-//      child: RaisedButton(
-//        child: Text(AppLocalization.translate(context, 'btn_login')),
-//        onPressed: () {
-//          if (_formKey.currentState.validate()) {
-//            _formKey.currentState.save();
-//            checkInternetConnection();
-//          }
-//        },
-//        color: Colors.deepOrange,
-//        textColor: Colors.white,
-//        padding: EdgeInsets.fromLTRB(0, 12, 0, 12),
-//        splashColor: Colors.grey,
-//        shape: getCommonButtonShape(),
-//      ),
-//    );
-//  }
-
-  Row _buildSliderRow() {
-    return Row(
-      children: <Widget>[
-        Text('0.5KM'),
-        Slider(
-          min: 0.5,
-          max: 10.0,
-          divisions: 10,
-          value: _radius,
-          onChanged: (double newValue) {
-            setState(() {
-              _radius = newValue;
-            });
-          },
-          onChangeEnd: (double newValue) {
-            print('Ended change on $newValue');
-            _radius = newValue;
-            _onSliderValueChangedEnded();
-          },
+  _buildSliderDetailBox() {
+    return Row(children: <Widget>[
+      Expanded(
+        flex: 7,
+        child: Container(
+          padding: EdgeInsets.all(4.0),
+          color: Color.fromRGBO(43, 120, 112, 1.0),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                flex: 2,
+                child: Text(
+                  '0.5KM',
+                  style: TextStyle(fontSize: 14, color: Colors.white),
+                ),
+              ),
+              Expanded(flex: 7, child: _buildSliderWidget()),
+              Expanded(
+                  flex: 2,
+                  child: Text('10KM',
+                      style: TextStyle(fontSize: 14, color: Colors.white)))
+            ],
+          ),
         ),
-        Text('10KM'),
-        SizedBox(width: 5.0),
-        Text('${_radius.round()}KM'),
-      ],
+      ),
+      Expanded(
+        flex: 3,
+        child: Container(
+            padding: EdgeInsets.all(16.0),
+            color: Color.fromRGBO(14, 63, 59, 1.0),
+            child: Text('${_radius.round()}KM',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white))),
+      )
+    ]);
+  }
+
+  Slider _buildSliderWidget() {
+    return Slider(
+      min: 0.5,
+      max: 10.0,
+      value: _radius,
+      inactiveColor: Colors.black26,
+      activeColor: Colors.white,
+      onChanged: (double newValue) {
+        setState(() {
+          _radius = newValue;
+          print('change on $_radius,$newValue');
+        });
+        print('change on after setstate $_radius,$newValue');
+      },
+      onChangeEnd: (double newRadius) {
+        print('Ended change on $_radius,$newRadius');
+        _onSliderValueChangedEnded(newRadius);
+        setState(() {
+          _showLoadingIndicator = true;
+        });
+      },
     );
   }
 
-  _onSliderValueChangedEnded() async {
-    ServiceUtils.fetchResultFromServer(_latitude, _longitude, _radius.round())
-        .then((response) {
-      List<Masjid> data;
-      if (response != null)
-        data = response;
-      else
-        data = List();
-      print(data.length);
+  _onSliderValueChangedEnded(newRadius) {
+    Connectivity().checkConnectivity().then((result) {
+      if (result == ConnectivityResult.mobile ||
+          result == ConnectivityResult.wifi) {
+        ServiceUtils.fetchResultFromServer(
+            databaseHelper, _latitude, _longitude, newRadius.round())
+            .then((response) {
+          if (response != null && response) {
+            setState(() {
+              _showLoadingIndicator = false;
+            });
+          }
+          print(response);
+        });
+      } else {
+        showSnackBar(_scaffoldKey,
+            AppLocalization.translate(context, 'no_connection_available'));
+      }
     });
   }
 }

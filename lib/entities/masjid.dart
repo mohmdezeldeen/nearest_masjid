@@ -1,14 +1,14 @@
+import 'dart:convert';
 import 'dart:core';
 
 class Masjid {
-  final int id;
-  final String name_en;
-  final String name_ar;
-  final String address;
-  final double latitude;
-  final double longitude;
-  final String images_url;
-  final double distance;
+  int id;
+  String name_en;
+  String name_ar;
+  String address;
+  double latitude;
+  double longitude;
+  double distance;
 
   Masjid(
       {this.id,
@@ -17,18 +17,24 @@ class Masjid {
       this.address,
       this.latitude,
       this.longitude,
-      this.images_url,
       this.distance});
 
-  factory Masjid.fromJson(Map json) {
-    return Masjid(
-        id: json['id'],
-        name_en: json['name_en'],
-        name_ar: json['name_ar'],
-        address: json['address'],
-        latitude: json['latitude'],
-        longitude: json['longitude'],
-        images_url: json['images_url'],
-        distance: json['distance']);
-  }
+  factory Masjid.fromJson(Map<String, dynamic> json) => Masjid(
+      id: json['id'],
+      name_en: json['name_en'],
+      name_ar: json['name_ar'],
+      address: json['address'],
+      latitude: json['latitude'] as double,
+      longitude: json['longitude'] as double,
+      distance: json['distance'] as double);
+
+  Map<String, dynamic> toMap() => {
+        "id": id,
+        "name_en": name_en,
+        "name_ar": name_ar,
+        "address": address,
+        "latitude": latitude,
+        "longitude": longitude,
+        "distance": distance
+      };
 }

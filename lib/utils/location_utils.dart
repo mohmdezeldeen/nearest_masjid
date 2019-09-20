@@ -20,57 +20,25 @@ class LocationUtils {
     return _fromGeolocationStatus(status);
   }
 
-  static Future<Position> _currentPosition() async {
-    return await Geolocator().getCurrentPosition();
-  }
-
-  static Future<List<Placemark>> _convertCoordinatesToPlaceMarks(
-      Position position) async {
-    return await Geolocator()
-        .placemarkFromCoordinates(position.latitude, position.longitude);
-  }
-
-  static Future<String> _getCurrentLocationName() async {
-    Position position = await _currentPosition();
-    return _getPositionLocationName(position);
-  }
-
-  static Future<String> _getPositionLocationName(Position position) async {
-    List<Placemark> placeMarks =
-        await _convertCoordinatesToPlaceMarks(position);
-    return _convertPlaceMarksToLocationName(placeMarks);
-  }
-
-  static String _convertPlaceMarksToLocationName(List<Placemark> placeMarks) {
-    String placeMarkName = "";
-    var placeMark = placeMarks.first;
-    placeMarkName =
-        '${placeMark.name ?? ''} ${placeMark.subLocality ?? ''},${placeMark.locality ?? ''}, ${placeMark.subAdministrativeArea ?? ''},${placeMark.administrativeArea ?? ''},${placeMark.country ?? ''}';
-    return placeMarkName;
-  }
-
-  static Future<LocationResponse> findCurrentLocationName() async {
+  static Future<LocationResponse> findCurrentLocation() async {
     LocationResponse response = LocationResponse.createInstance();
-    return await _isServiceEnabled().then((isEnabled) async {
+    var isEnabled = await _isServiceEnabled();
       if (!isEnabled) {
         response.error = "Location Service Not Enabled";
-        return null;
+        return response;
       }
-      return await _getPermissionStatusAsNumber();
-    }).then((statusNumber) async {
-      if (statusNumber == null) return null;
-      return await Geolocator().getCurrentPosition();
-    }).then((pos) async {
-      if (pos == null) return null;
-      response.position = pos;
-      return await _convertCoordinatesToPlaceMarks(response.position);
-    }).then((placeMarks) async {
-      if (placeMarks == null) return response;
-      response.placeMarkList = placeMarks;
-      response.namedPosition =
-          await _convertPlaceMarksToLocationName(placeMarks);
+      var statusNumber = await _getPermissionStatusAsNumber();
+      if (statusNumber == null) {
+        response.error = "Permission status number is null";
+        return response;}
+
+      var position = await Geolocator().getCurrentPosition();
+      if (position == null) {
+        response.error = "Could not get current location";
+        return response;
+      }
+      response.position = position;
       return response;
-    });
   }
 
   static int _fromGeolocationStatus(GeolocationStatus status) {
@@ -86,18 +54,6 @@ class LocationUtils {
     }
   }
 
-  static String _toGeolcationStatus(int statusNumber) {
-    switch (statusNumber) {
-      case GEOLOCATION_STATUS_DENIED:
-        return GeolocationStatus.denied.toString();
-      case GEOLOCATION_STATUS_ACCEPTED:
-        return GeolocationStatus.granted.toString();
-      case GEOLOCATION_STATUS_RESTRICTED:
-        return GeolocationStatus.restricted.toString();
-      default:
-        return GeolocationStatus.unknown.toString();
-    }
-  }
 }
 
 class LocationResponse {

@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 showSnackBar(var key, String content, [SnackBarBehavior behavior]) {
   print('showSnackBar');
   final snackBar = SnackBar(
+    duration: Duration(seconds: 3),
     content: Text(content),
     behavior: behavior ?? SnackBarBehavior.fixed,
   );
   if (key.currentState != null) key.currentState.showSnackBar(snackBar);
 }
 
-Column buildLoadingDataIndicator(String text) {
+Column buildLoadingDataIndicator(String text,TextStyle style) {
   return Column(children: <Widget>[
     Center(
         child: Container(
@@ -17,6 +18,6 @@ Column buildLoadingDataIndicator(String text) {
             alignment: Alignment.center,
             child: CircularProgressIndicator())),
     SizedBox(height: 25.0),
-    Text(text)
+    Text(text,style: style,)
   ]);
 }
